@@ -7,13 +7,6 @@ public class SimpleSeesaw : MonoBehaviour
     public float selfWeightTorque = 3.0f;       // torque from self-weight
     [Tooltip("Self-weight starts only after this angle")]
     public float minGravityAngle = 1.0f;        // degrees
-        // 2.5 Self-weight tipping
-        float minGravityRad = minGravityAngle * Mathf.Deg2Rad;
-        if (Mathf.Abs(angle) > minGravityRad)
-        {
-            float gravityTorque = Mathf.Sin(angle) * selfWeightTorque;
-            angle += gravityTorque * dt;
-        }
 
     [Header("尺寸与物理")]
     public Vector2 size = new Vector2(8f, 0.5f); // 长而扁
@@ -47,6 +40,14 @@ public class SimpleSeesaw : MonoBehaviour
         float angularVelocity = (angle - prevAngle) * angularDamping;
         prevAngle = angle;
         angle += angularVelocity;
+
+        // 2.5 Self-weight tipping
+        float minGravityRad = minGravityAngle * Mathf.Deg2Rad;
+        if (Mathf.Abs(angle) > minGravityRad)
+        {
+            float gravityTorque = Mathf.Sin(angle) * selfWeightTorque;
+            angle += gravityTorque * dt;
+        }
 
         // 2. 自动回正力矩（让它倾向于回到水平 0 度）
         float angleDiff = 0 - angle;
