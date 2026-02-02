@@ -80,7 +80,7 @@ public class SimpleBox : MonoBehaviour
         ResolveEnvironmentCollisions();
 
         ResolveEnvironmentCollisions(); // 处理墙壁
-        ResolveSeesawCollisions();      // 新增：处理与跷跷板的碰撞
+        ResolveSeesawCollisions();      // 新增：处理与跷跷板的碰撞？
 
         // 4. 更新视觉表现
         transform.position = position;

@@ -15,7 +15,7 @@ public class SimpleSeesaw : MonoBehaviour
 
     [HideInInspector] public float angle;       // 当前弧度
     private float prevAngle;
-    private Vector2 pivotPosition;              // 固定中心点
+    private Vector2 pivotPosition;              // 固定中心点？
     private SimpleWall[] allWalls;
 
     void Start()

@@ -350,7 +350,7 @@ public class SlimeSoftBody : MonoBehaviour
             Vector2 halfSize = seesaw.size * 0.5f;
             Vector2 pivotPos = seesaw.transform.position;
 
-            // 增加一个“安全厚度”缓冲区
+            // 增加一个“安全厚度”缓冲区？
             float safetyBuffer = 0.3f;
 
             foreach (var node in nodes)
