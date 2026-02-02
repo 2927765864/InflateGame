@@ -66,13 +66,15 @@ public class SlimeSoftBody : MonoBehaviour
     private bool isGrounded = false;
     private float currentArea;
     private int leftEyeIdx, rightEyeIdx, noseIdx, leftEarIdx, rightEarIdx, tailIdx, legFLIdx, legFRIdx, legBLIdx, legBRIdx;
-
+    private SimpleBox[] allBoxes; // 在 Start 中获取场景内所有箱子
     void Start()
     {
         allWalls = FindObjectsOfType<SimpleWall>();
         nodes = new List<Node>();
         targetDistances = new float[nodeCount];
         originalAngles = new float[nodeCount];
+        allWalls = FindObjectsOfType<SimpleWall>();
+        allBoxes = FindObjectsOfType<SimpleBox>(); // 获取所有物理箱子
 
         for (int i = 0; i < nodeCount; i++)
         {
@@ -269,6 +271,132 @@ public class SlimeSoftBody : MonoBehaviour
                     else if (minP == dB) { node.pos.y = b.min.y; node.prevPos.y = node.pos.y; node.prevPos.x += vel.x * wall.friction; }
                     else if (minP == dL) { node.pos.x = b.min.x; node.prevPos.x = node.pos.x; node.prevPos.y += vel.y * wall.friction; }
                     else if (minP == dR) { node.pos.x = b.max.x; node.prevPos.x = node.pos.x; node.prevPos.y += vel.y * wall.friction; }
+                }
+            }
+        }
+
+        SimpleBox[] allBoxes = FindObjectsOfType<SimpleBox>();
+        foreach (var box in allBoxes)
+        {
+            // 计算箱子的旋转矩阵
+            float cos = Mathf.Cos(-box.angle);
+            float sin = Mathf.Sin(-box.angle);
+            Vector2 halfSize = box.size * 0.5f;
+
+            foreach (var node in nodes)
+            {
+                // 1. 将质点转为箱子的本地坐标 (Local Space)
+                Vector2 relativePos = node.pos - box.position;
+                Vector2 localPos = new Vector2(
+                    relativePos.x * cos - relativePos.y * sin,
+                    relativePos.x * sin + relativePos.y * cos
+                );
+
+                // 2. 在本地坐标下进行矩形碰撞检测
+                if (Mathf.Abs(localPos.x) < halfSize.x && Mathf.Abs(localPos.y) < halfSize.y)
+                {
+                    // 计算挤出向量 (Local Space)
+                    float dx = halfSize.x - Mathf.Abs(localPos.x);
+                    float dy = halfSize.y - Mathf.Abs(localPos.y);
+
+                    Vector2 localNormal;
+                    if (dx < dy)
+                    {
+                        localNormal = new Vector2(Mathf.Sign(localPos.x), 0);
+                        localPos.x = halfSize.x * Mathf.Sign(localPos.x);
+                    }
+                    else
+                    {
+                        localNormal = new Vector2(0, Mathf.Sign(localPos.y));
+                        localPos.y = halfSize.y * Mathf.Sign(localPos.y);
+                        if (localNormal.y > 0) isGrounded = true; // 踩在顶面
+                    }
+
+                    // 3. 将位置和法线转回世界坐标 (World Space)
+                    float cosW = Mathf.Cos(box.angle);
+                    float sinW = Mathf.Sin(box.angle);
+                    node.pos = new Vector2(
+                        box.position.x + localPos.x * cosW - localPos.y * sinW,
+                        box.position.y + localPos.x * sinW + localPos.y * cosW
+                    );
+
+                    Vector2 worldNormal = new Vector2(
+                        localNormal.x * cosW - localNormal.y * sinW,
+                        localNormal.x * sinW + localNormal.y * cosW
+                    );
+
+                    // 4. 应用冲量到箱子
+                    // 关键：冲量的大小取决于碰撞深度和猪猪的内压
+                    float impulseMagnitude = Mathf.Min(dx, dy) * 0.5f;
+                    Vector2 impulse = -worldNormal * impulseMagnitude;
+
+                    // 作用点就是当前质点的位置，这样偏心碰撞就会产生旋转！
+                    box.AddImpulseAtPosition(impulse, node.pos);
+
+                    // 5. 摩擦力反馈
+                    Vector2 vel = node.pos - node.prevPos;
+                    node.prevPos += vel * box.friction;
+                }
+            }
+        }
+
+        // 在 ApplyCollisions 内部添加
+        // --- 增强型跷跷板碰撞逻辑 (解决隧道效应) ---
+        SimpleSeesaw[] allSeesaws = FindObjectsOfType<SimpleSeesaw>();
+        foreach (var seesaw in allSeesaws)
+        {
+            float cos = Mathf.Cos(-seesaw.angle);
+            float sin = Mathf.Sin(-seesaw.angle);
+            Vector2 halfSize = seesaw.size * 0.5f;
+            Vector2 pivotPos = seesaw.transform.position;
+
+            // 增加一个“安全厚度”缓冲区
+            float safetyBuffer = 0.3f;
+
+            foreach (var node in nodes)
+            {
+                // 1. 获取当前位置的本地坐标
+                Vector2 relativePos = node.pos - pivotPos;
+                Vector2 localPos = new Vector2(
+                    relativePos.x * cos - relativePos.y * sin,
+                    relativePos.x * sin + relativePos.y * cos
+                );
+
+                // 2. 获取上一帧位置的本地坐标 (关键！)
+                Vector2 prevRelativePos = node.prevPos - pivotPos;
+                Vector2 prevLocalPos = new Vector2(
+                    prevRelativePos.x * cos - prevRelativePos.y * sin,
+                    prevRelativePos.x * sin + prevRelativePos.y * cos
+                );
+
+                // 3. 碰撞判定改进：
+                // A. 质点当前就在跷跷板内
+                // B. 或者，质点在本帧穿过了跷跷板的中心平面 (从 y>0 变到 y<0，或反之)
+                bool isInside = Mathf.Abs(localPos.x) < halfSize.x && Mathf.Abs(localPos.y) < halfSize.y;
+                bool didCross = Mathf.Abs(localPos.x) < halfSize.x && (Mathf.Sign(localPos.y) != Mathf.Sign(prevLocalPos.y)) && (Mathf.Abs(prevLocalPos.y) < 1.0f);
+
+                if (isInside || didCross)
+                {
+                    // 确定挤出方向：如果穿透了，则根据上一帧位置挤回原侧
+                    float pushSign = (prevLocalPos.y > 0) ? 1 : -1;
+
+                    // 强制将 localPos 修正到表面
+                    localPos.y = halfSize.y * pushSign;
+
+                    if (pushSign > 0) isGrounded = true; // 踩在上面
+
+                    // 4. 将修正后的本地位置转回世界坐标
+                    float cosW = Mathf.Cos(seesaw.angle);
+                    float sinW = Mathf.Sin(seesaw.angle);
+                    node.pos = new Vector2(
+                        pivotPos.x + localPos.x * cosW - localPos.y * sinW,
+                        pivotPos.y + localPos.x * sinW + localPos.y * cosW
+                    );
+
+                    // 5. 施加力矩
+                    // 冲量计算：基于位置的变化量
+                    Vector2 impulse = (node.prevPos - node.pos) * 0.5f;
+                    seesaw.AddImpulseAtPosition(impulse, node.pos);
                 }
             }
         }
