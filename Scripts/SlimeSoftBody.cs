@@ -4,40 +4,43 @@ using System.Collections.Generic;
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class SlimeSoftBody : MonoBehaviour
 {
-    // ================= ÊÓ¾õÉèÖÃ =================
-    [Header("ÊÓ¾õ±íÏÖ (Visuals)")]
+    // ================= è§†è§‰è®¾ç½® =================
+    [Header("è§†è§‰è¡¨ç° (Visuals)")]
     public Transform leftEyeAnchor; public Transform rightEyeAnchor;
     public Transform noseAnchor; public Transform leftEarAnchor;
     public Transform rightEarAnchor; public Transform tailAnchor;
     public Transform legFrontLeft; public Transform legFrontRight;
     public Transform legBackLeft; public Transform legBackRight;
 
-    [Header("ÑÕÉ«ÉèÖÃ")]
+    [Header("é¢œè‰²è®¾ç½®")]
     public Color baseColor = new Color(1f, 0.75f, 0.8f);
     public Color inflatedColor = new Color(1f, 0.92f, 0.94f);
 
-    // ================= ¿ØÖÆÉèÖÃ =================
-    [Header("Ë«ÈË¿ØÖÆÉèÖÃ")]
+    // ================= æ§åˆ¶è®¾ç½® =================
+    [Header("åŒäººæ§åˆ¶è®¾ç½®")]
     public string moveAxisName = "Horizontal";
     public bool useGamepadJump = false;
     public KeyCode keyboardJumpKey = KeyCode.Space;
     public string gamepadJumpButton = "joystick button 0";
 
-    // ================= ¿ç½ÇÉ«Åö×²ÉèÖÃ =================
-    [Header("Íæ¼Ò¼äÅö×² (Player-to-Player)")]
+    [Header("Seesaw Interaction")]
+    [Tooltip("Weight applied to the seesaw per node (higher presses down more).")]
+    public float seesawWeightScale = 0.4f;
+    // ================= è·¨è§’è‰²ç¢°æ’è®¾ç½® =================
+    [Header("ç©å®¶é—´ç¢°æ’ (Player-to-Player)")]
     public SlimeSoftBody otherPlayer;
-    [Tooltip("Åö×²Æ¤·ôºñ¶È£º¾ö¶¨ÌùµÃÓĞ¶à½ü£¬½¨Òé 0.1 - 0.2")]
+    [Tooltip("ç¢°æ’çš®è‚¤åšåº¦ï¼šå†³å®šè´´å¾—æœ‰å¤šè¿‘ï¼Œå»ºè®® 0.1 - 0.2")]
     public float collisionSkin = 0.15f;
-    [Tooltip("Åö×²ÅÅ³âÓ²¶È£º½¨Òé 0.2 - 0.5")]
+    [Tooltip("ç¢°æ’æ’æ–¥ç¡¬åº¦ï¼šå»ºè®® 0.2 - 0.5")]
     public float playerCollisionStiffness = 0.3f;
 
-    // ================= Ä£ÄâÉèÖÃ =================
-    [Header("Ä£Äâ¾«¶È")]
+    // ================= æ¨¡æ‹Ÿè®¾ç½® =================
+    [Header("æ¨¡æ‹Ÿç²¾åº¦")]
     public int nodeCount = 40;
     public float radius = 1.0f;
     public int constraintIterations = 6;
 
-    [Header("ÎïÀíÊôĞÔ")]
+    [Header("ç‰©ç†å±æ€§")]
     public Vector2 gravity = new Vector2(0, -35.0f);
     public float damping = 0.98f;
     public float jumpForce = 650f;
@@ -47,13 +50,13 @@ public class SlimeSoftBody : MonoBehaviour
     public float uprightForce = 15.0f;
     public float pressureDamping = 10.0f;
 
-    [Header("³äÆøÏŞÖÆ")]
+    [Header("å……æ°”é™åˆ¶")]
     public float targetArea = 5.0f;
     public float pressureMultiplier = 400f;
     public float minArea = 2.0f;
     public float maxArea = 25.0f;
 
-    // ================= ÄÚ²¿×´Ì¬ =================
+    // ================= å†…éƒ¨çŠ¶æ€ =================
     public class Node { public Vector2 pos; public Vector2 prevPos; public Vector2 acceleration; }
     public List<Node> nodes = new List<Node>();
     private float[] targetDistances;
@@ -66,7 +69,7 @@ public class SlimeSoftBody : MonoBehaviour
     private bool isGrounded = false;
     private float currentArea;
     private int leftEyeIdx, rightEyeIdx, noseIdx, leftEarIdx, rightEarIdx, tailIdx, legFLIdx, legFRIdx, legBLIdx, legBRIdx;
-    private SimpleBox[] allBoxes; // ÔÚ Start ÖĞ»ñÈ¡³¡¾°ÄÚËùÓĞÏä×Ó
+    private SimpleBox[] allBoxes; // åœ¨ Start ä¸­è·å–åœºæ™¯å†…æ‰€æœ‰ç®±å­
     void Start()
     {
         allWalls = FindObjectsOfType<SimpleWall>();
@@ -74,7 +77,7 @@ public class SlimeSoftBody : MonoBehaviour
         targetDistances = new float[nodeCount];
         originalAngles = new float[nodeCount];
         allWalls = FindObjectsOfType<SimpleWall>();
-        allBoxes = FindObjectsOfType<SimpleBox>(); // »ñÈ¡ËùÓĞÎïÀíÏä×Ó
+        allBoxes = FindObjectsOfType<SimpleBox>(); // è·å–æ‰€æœ‰ç‰©ç†ç®±å­
 
         for (int i = 0; i < nodeCount; i++)
         {
@@ -215,8 +218,8 @@ public class SlimeSoftBody : MonoBehaviour
 
                 myNode.pos += resolveDir * overlap * playerCollisionStiffness;
 
-                // --- ĞÂÔöÅĞ¶¨£º²ÈÍ·Ìø ---
-                // Èç¹ûÅö×²·¢Éú£¬ÇÒÎÒµÄÖÊµãÔÚ¶Ô·½ÖĞĞÄµãÉÏ·½£¬ÔòÅĞ¶¨Îª¡°×ÅµØ¡±
+                // --- æ–°å¢åˆ¤å®šï¼šè¸©å¤´è·³ ---
+                // å¦‚æœç¢°æ’å‘ç”Ÿï¼Œä¸”æˆ‘çš„è´¨ç‚¹åœ¨å¯¹æ–¹ä¸­å¿ƒç‚¹ä¸Šæ–¹ï¼Œåˆ™åˆ¤å®šä¸ºâ€œç€åœ°â€
                 if (myNode.pos.y > otherPlayer.transform.position.y)
                 {
                     isGrounded = true;
@@ -278,24 +281,24 @@ public class SlimeSoftBody : MonoBehaviour
         SimpleBox[] allBoxes = FindObjectsOfType<SimpleBox>();
         foreach (var box in allBoxes)
         {
-            // ¼ÆËãÏä×ÓµÄĞı×ª¾ØÕó
+            // è®¡ç®—ç®±å­çš„æ—‹è½¬çŸ©é˜µ
             float cos = Mathf.Cos(-box.angle);
             float sin = Mathf.Sin(-box.angle);
             Vector2 halfSize = box.size * 0.5f;
 
             foreach (var node in nodes)
             {
-                // 1. ½«ÖÊµã×ªÎªÏä×ÓµÄ±¾µØ×ø±ê (Local Space)
+                // 1. å°†è´¨ç‚¹è½¬ä¸ºç®±å­çš„æœ¬åœ°åæ ‡ (Local Space)
                 Vector2 relativePos = node.pos - box.position;
                 Vector2 localPos = new Vector2(
                     relativePos.x * cos - relativePos.y * sin,
                     relativePos.x * sin + relativePos.y * cos
                 );
 
-                // 2. ÔÚ±¾µØ×ø±êÏÂ½øĞĞ¾ØĞÎÅö×²¼ì²â
+                // 2. åœ¨æœ¬åœ°åæ ‡ä¸‹è¿›è¡ŒçŸ©å½¢ç¢°æ’æ£€æµ‹
                 if (Mathf.Abs(localPos.x) < halfSize.x && Mathf.Abs(localPos.y) < halfSize.y)
                 {
-                    // ¼ÆËã¼·³öÏòÁ¿ (Local Space)
+                    // è®¡ç®—æŒ¤å‡ºå‘é‡ (Local Space)
                     float dx = halfSize.x - Mathf.Abs(localPos.x);
                     float dy = halfSize.y - Mathf.Abs(localPos.y);
 
@@ -309,10 +312,10 @@ public class SlimeSoftBody : MonoBehaviour
                     {
                         localNormal = new Vector2(0, Mathf.Sign(localPos.y));
                         localPos.y = halfSize.y * Mathf.Sign(localPos.y);
-                        if (localNormal.y > 0) isGrounded = true; // ²ÈÔÚ¶¥Ãæ
+                        if (localNormal.y > 0) isGrounded = true; // è¸©åœ¨é¡¶é¢
                     }
 
-                    // 3. ½«Î»ÖÃºÍ·¨Ïß×ª»ØÊÀ½ç×ø±ê (World Space)
+                    // 3. å°†ä½ç½®å’Œæ³•çº¿è½¬å›ä¸–ç•Œåæ ‡ (World Space)
                     float cosW = Mathf.Cos(box.angle);
                     float sinW = Mathf.Sin(box.angle);
                     node.pos = new Vector2(
@@ -325,23 +328,23 @@ public class SlimeSoftBody : MonoBehaviour
                         localNormal.x * sinW + localNormal.y * cosW
                     );
 
-                    // 4. Ó¦ÓÃ³åÁ¿µ½Ïä×Ó
-                    // ¹Ø¼ü£º³åÁ¿µÄ´óĞ¡È¡¾öÓÚÅö×²Éî¶ÈºÍÖíÖíµÄÄÚÑ¹
+                    // 4. åº”ç”¨å†²é‡åˆ°ç®±å­
+                    // å…³é”®ï¼šå†²é‡çš„å¤§å°å–å†³äºç¢°æ’æ·±åº¦å’ŒçŒªçŒªçš„å†…å‹
                     float impulseMagnitude = Mathf.Min(dx, dy) * 0.5f;
                     Vector2 impulse = -worldNormal * impulseMagnitude;
 
-                    // ×÷ÓÃµã¾ÍÊÇµ±Ç°ÖÊµãµÄÎ»ÖÃ£¬ÕâÑùÆ«ĞÄÅö×²¾Í»á²úÉúĞı×ª£¡
+                    // ä½œç”¨ç‚¹å°±æ˜¯å½“å‰è´¨ç‚¹çš„ä½ç½®ï¼Œè¿™æ ·åå¿ƒç¢°æ’å°±ä¼šäº§ç”Ÿæ—‹è½¬ï¼
                     box.AddImpulseAtPosition(impulse, node.pos);
 
-                    // 5. Ä¦²ÁÁ¦·´À¡
+                    // 5. æ‘©æ“¦åŠ›åé¦ˆ
                     Vector2 vel = node.pos - node.prevPos;
                     node.prevPos += vel * box.friction;
                 }
             }
         }
 
-        // ÔÚ ApplyCollisions ÄÚ²¿Ìí¼Ó
-        // --- ÔöÇ¿ĞÍõÎõÎ°åÅö×²Âß¼­ (½â¾öËíµÀĞ§Ó¦) ---
+        // åœ¨ ApplyCollisions å†…éƒ¨æ·»åŠ 
+        // --- å¢å¼ºå‹è··è··æ¿ç¢°æ’é€»è¾‘ (è§£å†³éš§é“æ•ˆåº”) ---
         SimpleSeesaw[] allSeesaws = FindObjectsOfType<SimpleSeesaw>();
         foreach (var seesaw in allSeesaws)
         {
@@ -350,42 +353,49 @@ public class SlimeSoftBody : MonoBehaviour
             Vector2 halfSize = seesaw.size * 0.5f;
             Vector2 pivotPos = seesaw.transform.position;
 
-            // Ôö¼ÓÒ»¸ö¡°°²È«ºñ¶È¡±»º³åÇø
+            // å¢åŠ ä¸€ä¸ªâ€œå®‰å…¨åšåº¦â€ç¼“å†²åŒº
             float safetyBuffer = 0.3f;
 
             foreach (var node in nodes)
             {
-                // 1. »ñÈ¡µ±Ç°Î»ÖÃµÄ±¾µØ×ø±ê
+                // 1. è·å–å½“å‰ä½ç½®çš„æœ¬åœ°åæ ‡
                 Vector2 relativePos = node.pos - pivotPos;
                 Vector2 localPos = new Vector2(
                     relativePos.x * cos - relativePos.y * sin,
                     relativePos.x * sin + relativePos.y * cos
                 );
 
-                // 2. »ñÈ¡ÉÏÒ»Ö¡Î»ÖÃµÄ±¾µØ×ø±ê (¹Ø¼ü£¡)
+                    if (pushSign > 0)
+                    {
+                        isGrounded = true;
+
+                        // Apply continuous weight so the seesaw keeps pressing down while standing.
+                        Vector2 weightImpulse = curGravity * seesawWeightScale * dt;
+                        seesaw.AddImpulseAtPosition(weightImpulse, node.pos);
+                    }
                 Vector2 prevRelativePos = node.prevPos - pivotPos;
                 Vector2 prevLocalPos = new Vector2(
                     prevRelativePos.x * cos - prevRelativePos.y * sin,
                     prevRelativePos.x * sin + prevRelativePos.y * cos
                 );
 
-                // 3. Åö×²ÅĞ¶¨¸Ä½ø£º
-                // A. ÖÊµãµ±Ç°¾ÍÔÚõÎõÎ°åÄÚ
-                // B. »òÕß£¬ÖÊµãÔÚ±¾Ö¡´©¹ıÁËõÎõÎ°åµÄÖĞĞÄÆ½Ãæ (´Ó y>0 ±äµ½ y<0£¬»ò·´Ö®)
+                // 3. ç¢°æ’åˆ¤å®šæ”¹è¿›ï¼š
+                // A. è´¨ç‚¹å½“å‰å°±åœ¨è··è··æ¿å†…
+                // B. æˆ–è€…ï¼Œè´¨ç‚¹åœ¨æœ¬å¸§ç©¿è¿‡äº†è··è··æ¿çš„ä¸­å¿ƒå¹³é¢ (ä» y>0 å˜åˆ° y<0ï¼Œæˆ–åä¹‹)
                 bool isInside = Mathf.Abs(localPos.x) < halfSize.x && Mathf.Abs(localPos.y) < halfSize.y;
                 bool didCross = Mathf.Abs(localPos.x) < halfSize.x && (Mathf.Sign(localPos.y) != Mathf.Sign(prevLocalPos.y)) && (Mathf.Abs(prevLocalPos.y) < 1.0f);
 
                 if (isInside || didCross)
                 {
-                    // È·¶¨¼·³ö·½Ïò£ºÈç¹û´©Í¸ÁË£¬Ôò¸ù¾İÉÏÒ»Ö¡Î»ÖÃ¼·»ØÔ­²à
+                    // ç¡®å®šæŒ¤å‡ºæ–¹å‘ï¼šå¦‚æœç©¿é€äº†ï¼Œåˆ™æ ¹æ®ä¸Šä¸€å¸§ä½ç½®æŒ¤å›åŸä¾§
                     float pushSign = (prevLocalPos.y > 0) ? 1 : -1;
 
-                    // Ç¿ÖÆ½« localPos ĞŞÕıµ½±íÃæ
+                    // å¼ºåˆ¶å°† localPos ä¿®æ­£åˆ°è¡¨é¢
                     localPos.y = halfSize.y * pushSign;
 
-                    if (pushSign > 0) isGrounded = true; // ²ÈÔÚÉÏÃæ
+                    if (pushSign > 0) isGrounded = true; // è¸©åœ¨ä¸Šé¢
 
-                    // 4. ½«ĞŞÕıºóµÄ±¾µØÎ»ÖÃ×ª»ØÊÀ½ç×ø±ê
+                    // 4. å°†ä¿®æ­£åçš„æœ¬åœ°ä½ç½®è½¬å›ä¸–ç•Œåæ ‡
                     float cosW = Mathf.Cos(seesaw.angle);
                     float sinW = Mathf.Sin(seesaw.angle);
                     node.pos = new Vector2(
@@ -393,8 +403,8 @@ public class SlimeSoftBody : MonoBehaviour
                         pivotPos.y + localPos.x * sinW + localPos.y * cosW
                     );
 
-                    // 5. Ê©¼ÓÁ¦¾Ø
-                    // ³åÁ¿¼ÆËã£º»ùÓÚÎ»ÖÃµÄ±ä»¯Á¿
+                    // 5. æ–½åŠ åŠ›çŸ©
+                    // å†²é‡è®¡ç®—ï¼šåŸºäºä½ç½®çš„å˜åŒ–é‡
                     Vector2 impulse = (node.prevPos - node.pos) * 0.5f;
                     seesaw.AddImpulseAtPosition(impulse, node.pos);
                 }
@@ -402,7 +412,7 @@ public class SlimeSoftBody : MonoBehaviour
         }
     }
 
-    // ½«ÕâĞ©·ÅÔÚ SlimeSoftBody.cs ÀàµÄÄ©Î²
+    // å°†è¿™äº›æ”¾åœ¨ SlimeSoftBody.cs ç±»çš„æœ«å°¾
 
     public void SetGrounded(bool state)
     {
