@@ -2,6 +2,19 @@ using UnityEngine;
 
 public class SimpleSeesaw : MonoBehaviour
 {
+    [Header("Self Weight")]
+    [Tooltip("Let the seesaw keep tipping once it has a slight tilt")]
+    public float selfWeightTorque = 3.0f;       // torque from self-weight
+    [Tooltip("Self-weight starts only after this angle")]
+    public float minGravityAngle = 1.0f;        // degrees
+        // 2.5 Self-weight tipping
+        float minGravityRad = minGravityAngle * Mathf.Deg2Rad;
+        if (Mathf.Abs(angle) > minGravityRad)
+        {
+            float gravityTorque = Mathf.Sin(angle) * selfWeightTorque;
+            angle += gravityTorque * dt;
+        }
+
     [Header("尺寸与物理")]
     public Vector2 size = new Vector2(8f, 0.5f); // 长而扁
     public float inertia = 50f;                 // 转动惯量：越大转动越迟钝
@@ -12,11 +25,6 @@ public class SimpleSeesaw : MonoBehaviour
     [Header("角度限制")]
     public float maxAngleDegree = 30f;          // 最大倾斜角度
     public float restoringForce = 2.0f;         // 自动回正的力量强度
-    [Header("Self Weight")]
-    [Tooltip("Let the seesaw keep tipping once it has a slight tilt")]
-    public float selfWeightTorque = 3.0f;       // torque from self-weight
-    [Tooltip("Self-weight starts only after this angle")]
-    public float minGravityAngle = 1.0f;        // degrees
 
     [HideInInspector] public float angle;       // 当前弧度
     private float prevAngle;
@@ -43,14 +51,6 @@ public class SimpleSeesaw : MonoBehaviour
         // 2. 自动回正力矩（让它倾向于回到水平 0 度）
         float angleDiff = 0 - angle;
         angle += angleDiff * restoringForce * dt;
-
-        // 2.5 Self-weight tipping
-        float minGravityRad = minGravityAngle * Mathf.Deg2Rad;
-        if (Mathf.Abs(angle) > minGravityRad)
-        {
-            float gravityTorque = Mathf.Sin(angle) * selfWeightTorque;
-            angle += gravityTorque * dt;
-        }
 
         // 3. 限制角度
         float maxRad = maxAngleDegree * Mathf.Deg2Rad;
