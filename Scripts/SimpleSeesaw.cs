@@ -2,20 +2,33 @@ using UnityEngine;
 
 public class SimpleSeesaw : MonoBehaviour
 {
-    [Header("³ß´çÓëÎïÀí")]
-    public Vector2 size = new Vector2(8f, 0.5f); // ³¤¶ø±â
-    public float inertia = 50f;                 // ×ª¶¯¹ßÁ¿£ºÔ½´ó×ª¶¯Ô½³Ù¶Û
+    [Header("Self Weight")]
+    [Tooltip("Let the seesaw keep tipping once it has a slight tilt")]
+    public float selfWeightTorque = 3.0f;       // torque from self-weight
+    [Tooltip("Self-weight starts only after this angle")]
+    public float minGravityAngle = 1.0f;        // degrees
+        // 2.5 Self-weight tipping
+        float minGravityRad = minGravityAngle * Mathf.Deg2Rad;
+        if (Mathf.Abs(angle) > minGravityRad)
+        {
+            float gravityTorque = Mathf.Sin(angle) * selfWeightTorque;
+            angle += gravityTorque * dt;
+        }
+
+    [Header("å°ºå¯¸ä¸Žç‰©ç†")]
+    public Vector2 size = new Vector2(8f, 0.5f); // é•¿è€Œæ‰
+    public float inertia = 50f;                 // è½¬åŠ¨æƒ¯é‡ï¼šè¶Šå¤§è½¬åŠ¨è¶Šè¿Ÿé’
     [Range(0f, 1f)]
-    public float angularDamping = 0.95f;        // Ðý×ª×èÄá
-    public float friction = 0.2f;               // ±íÃæÄ¦²ÁÁ¦
+    public float angularDamping = 0.95f;        // æ—‹è½¬é˜»å°¼
+    public float friction = 0.2f;               // è¡¨é¢æ‘©æ“¦åŠ›
 
-    [Header("½Ç¶ÈÏÞÖÆ")]
-    public float maxAngleDegree = 30f;          // ×î´óÇãÐ±½Ç¶È
-    public float restoringForce = 2.0f;         // ×Ô¶¯»ØÕýµÄÁ¦Á¿Ç¿¶È
+    [Header("è§’åº¦é™åˆ¶")]
+    public float maxAngleDegree = 30f;          // æœ€å¤§å€¾æ–œè§’åº¦
+    public float restoringForce = 2.0f;         // è‡ªåŠ¨å›žæ­£çš„åŠ›é‡å¼ºåº¦
 
-    [HideInInspector] public float angle;       // µ±Ç°»¡¶È
+    [HideInInspector] public float angle;       // å½“å‰å¼§åº¦
     private float prevAngle;
-    private Vector2 pivotPosition;              // ¹Ì¶¨ÖÐÐÄµã
+    private Vector2 pivotPosition;              // å›ºå®šä¸­å¿ƒç‚¹
     private SimpleWall[] allWalls;
 
     void Start()
@@ -30,32 +43,32 @@ public class SimpleSeesaw : MonoBehaviour
     {
         float dt = Time.fixedDeltaTime;
 
-        // 1. ¼ÆËã½ÇËÙ¶È£¨Verlet»ý·Ö£©
+        // 1. è®¡ç®—è§’é€Ÿåº¦ï¼ˆVerletç§¯åˆ†ï¼‰
         float angularVelocity = (angle - prevAngle) * angularDamping;
         prevAngle = angle;
         angle += angularVelocity;
 
-        // 2. ×Ô¶¯»ØÕýÁ¦¾Ø£¨ÈÃËüÇãÏòÓÚ»Øµ½Ë®Æ½ 0 ¶È£©
+        // 2. è‡ªåŠ¨å›žæ­£åŠ›çŸ©ï¼ˆè®©å®ƒå€¾å‘äºŽå›žåˆ°æ°´å¹³ 0 åº¦ï¼‰
         float angleDiff = 0 - angle;
         angle += angleDiff * restoringForce * dt;
 
-        // 3. ÏÞÖÆ½Ç¶È
+        // 3. é™åˆ¶è§’åº¦
         float maxRad = maxAngleDegree * Mathf.Deg2Rad;
         if (angle > maxRad) { angle = maxRad; prevAngle = angle; }
         if (angle < -maxRad) { angle = -maxRad; prevAngle = angle; }
 
-        // 4. »·¾³Åö×²£¨·ÀÖ¹õÎõÎ°å×ª½øÇ½Àï£¬ËäÈ»Í¨³£õÎõÎ°åÏÂ»áÓÐÖ§¼Ü£©
+        // 4. çŽ¯å¢ƒç¢°æ’žï¼ˆé˜²æ­¢è··è··æ¿è½¬è¿›å¢™é‡Œï¼Œè™½ç„¶é€šå¸¸è··è··æ¿ä¸‹ä¼šæœ‰æ”¯æž¶ï¼‰
         ResolveWallCollisions();
 
-        // 5. Ó¦ÓÃ±ä»»
-        transform.position = pivotPosition; // Ç¿ÖÆËø¶¨Î»ÖÃ
+        // 5. åº”ç”¨å˜æ¢
+        transform.position = pivotPosition; // å¼ºåˆ¶é”å®šä½ç½®
         transform.rotation = Quaternion.Euler(0, 0, angle * Mathf.Rad2Deg);
     }
 
-    // Í¬ÑùÓÉ SlimeSoftBody µ÷ÓÃ
+    // åŒæ ·ç”± SlimeSoftBody è°ƒç”¨
     public void AddImpulseAtPosition(Vector2 impulse, Vector2 worldPos)
     {
-        // õÎõÎ°åÖ»½ÓÊÜÁ¦¾Ø£ºTorque = r x F
+        // è··è··æ¿åªæŽ¥å—åŠ›çŸ©ï¼šTorque = r x F
         Vector2 r = worldPos - pivotPosition;
         float torque = r.x * impulse.y - r.y * impulse.x;
         angle += torque / inertia;
@@ -63,8 +76,8 @@ public class SimpleSeesaw : MonoBehaviour
 
     private void ResolveWallCollisions()
     {
-        // ÕâÀï¿ÉÒÔ¸´ÓÃ SAT Âß¼­£¬»òÕß¼òµ¥µØÈÃõÎõÎ°åÖ»ÊÜ½Ç¶ÈÏÞÖÆ²»ÓëÇ½Ìå½»»¥
-        // Èç¹ûÄãµÄ¹Ø¿¨Éè¼ÆÖÐõÎõÎ°åÏÂÃæÓÐµØÃæ£¬½¨Òé±£Áô½Ç¶ÈÏÞÖÆ¼´¿É£¬¼òµ¥¸ßÐ§
+        // è¿™é‡Œå¯ä»¥å¤ç”¨ SAT é€»è¾‘ï¼Œæˆ–è€…ç®€å•åœ°è®©è··è··æ¿åªå—è§’åº¦é™åˆ¶ä¸ä¸Žå¢™ä½“äº¤äº’
+        // å¦‚æžœä½ çš„å…³å¡è®¾è®¡ä¸­è··è··æ¿ä¸‹é¢æœ‰åœ°é¢ï¼Œå»ºè®®ä¿ç•™è§’åº¦é™åˆ¶å³å¯ï¼Œç®€å•é«˜æ•ˆ
     }
 
     public Vector2[] GetWorldCorners()
